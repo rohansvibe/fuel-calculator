@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#f5c842" />
+  <meta name="description" content="Calculate fuel cost and requirements for your trips instantly." />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Fuel Calc" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <title>Fuel Trip Calculator</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600;700&display=swap');
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{--gold:#f5c842;--gold2:#e8a020;--bg:#0d0d12;--bg2:#111820;--bg3:#0a1a10;--card:rgba(255,255,255,0.04);--border:rgba(255,255,255,0.08);--border-gold:rgba(245,200,66,0.25);--text:#f0ead6;--muted:#888;--danger:#ff6b6b;--green:#4ade80}
+    html,body{min-height:100vh}
+    body{background:linear-gradient(135deg,var(--bg) 0%,var(--bg2) 60%,var(--bg3) 100%);color:var(--text);font-family:'DM Sans',system-ui,sans-serif;padding:0}
+
+    /* LAYOUT */
+    .app{display:grid;grid-template-columns:1fr 340px;min-height:100vh;max-width:1100px;margin:0 auto;gap:0}
+    .main-col{padding:28px 20px 48px 24px;border-right:1px solid var(--border)}
+    .history-col{padding:24px 20px;background:rgba(0,0,0,0.2)}
+
+    @media(max-width:768px){
+      .app{grid-template-columns:1fr}
+      .main-col{padding:20px 16px 24px;border-right:none;border-bottom:1px solid var(--border)}
+      .history-col{padding:20px 16px 40px}
+    }
+
+    /* HEADER */
+    .header{text-align:center;margin-bottom:24px}
+    .header-icon{display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;font-size:26px;background:linear-gradient(135deg,#f5c842,#e8a020);box-shadow:0 0 32px rgba(245,200,66,0.35);margin-bottom:10px}
+    h1{font-family:'DM Serif Display',Georgia,serif;font-size:24px;letter-spacing:0.02em;background:linear-gradient(90deg,#f5c842,#fff8e0);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .subtitle{color:var(--muted);font-size:12px;margin-top:3px}
+
+    /* CARDS */
+    .card{background:var(--card);border:1px solid var(--border-gold);border-radius:14px;padding:18px;margin-bottom:14px}
+    .card-plain{border-color:var(--border)}
+    .card-label{font-size:10px;color:var(--gold);letter-spacing:0.1em;text-transform:uppercase;font-weight:700;margin-bottom:12px}
+
+    /* SETTINGS */
+    .settings-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+    .field label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px}
+    input[type="number"],input[type="text"]{background:rgba(255,255,255,0.07);border:1px solid var(--border-gold);border-radius:8px;color:var(--gold);padding:8px 10px;font-size:14px;font-weight:700;width:100%;outline:none;font-family:inherit;-webkit-appearance:none}
+    input[type="text"]{color:var(--text);font-weight:400;font-size:13px}
+    input.place-input{color:#7dd3fc;border-color:rgba(125,211,252,0.3);font-weight:600;font-size:14px}
+    input.date-input{color:#a5b4fc;border-color:rgba(165,180,252,0.3);font-size:13px}
+    input::placeholder{color:rgba(255,255,255,0.18);font-weight:400}
+    input:focus{border-color:var(--gold)}
+    input.place-input:focus{border-color:#7dd3fc}
+    input.date-input:focus{border-color:#a5b4fc}
+
+    /* DESTINATION ROW */
+    .dest-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:0}
+
+    /* TOGGLE */
+    .toggle-row{display:flex;align-items:center;gap:10px;margin-top:14px;cursor:pointer;user-select:none;-webkit-user-select:none}
+    .toggle-track{width:40px;height:22px;border-radius:11px;background:rgba(255,255,255,0.1);position:relative;transition:background 0.25s;flex-shrink:0}
+    .toggle-track.on{background:rgba(245,200,66,0.8)}
+    .toggle-thumb{position:absolute;top:3px;left:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:left 0.25s;box-shadow:0 1px 4px rgba(0,0,0,0.4)}
+    .toggle-track.on .toggle-thumb{left:21px}
+    .toggle-label{font-size:12px;color:var(--muted);transition:color 0.2s}
+    .toggle-label.on{color:var(--gold)}
+
+    /* TRIP ROWS */
+    .trip-row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center;background:rgba(255,255,255,0.03);border:1px solid rgba(255,200,80,0.1);border-radius:10px;padding:10px 12px;margin-bottom:8px}
+    .remove-btn{background:rgba(255,80,80,0.1);border:1px solid rgba(255,80,80,0.2);border-radius:7px;color:var(--danger);cursor:pointer;padding:7px 10px;font-size:14px;margin-top:16px;line-height:1}
+    .add-trip-btn{width:100%;background:transparent;border:1.5px dashed rgba(245,200,66,0.25);border-radius:10px;color:var(--gold);padding:11px;font-size:13px;cursor:pointer;font-family:inherit;transition:background 0.2s,border-color 0.2s}
+    .add-trip-btn:hover{background:rgba(245,200,66,0.04);border-color:rgba(245,200,66,0.5)}
+
+    /* SAVE BUTTON */
+    .save-btn{width:100%;background:linear-gradient(135deg,#f5c842,#e8a020);border:none;border-radius:10px;color:#0d0d12;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;letter-spacing:0.03em;transition:opacity 0.2s,transform 0.1s}
+    .save-btn:hover{opacity:0.9}
+    .save-btn:active{transform:scale(0.98)}
+    .refresh-btn{width:100%;background:transparent;border:1px solid rgba(255,255,255,0.12);border-radius:10px;color:var(--muted);padding:10px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;margin-top:6px;letter-spacing:0.03em;transition:border-color 0.2s,color 0.2s}
+    .refresh-btn:hover{border-color:rgba(255,255,255,0.3);color:var(--text)}
+
+    /* RESULTS */
+    .result-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:13px}
+    .result-name{color:#ddd}.result-km{color:#444;font-size:11px;margin-left:6px}
+    .result-fuel{color:var(--muted);font-size:11px;margin-right:10px}.result-cost{color:var(--gold);font-weight:700}
+    .totals{margin-top:12px;padding-top:10px;border-top:1.5px solid rgba(245,200,66,0.2)}
+    .total-row{display:flex;justify-content:space-between;padding:5px 0;font-size:13px}
+    .total-row.big{font-size:16px;font-weight:700;margin-top:4px}.total-row.big span{color:var(--gold)}
+    .bar-meta{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:5px}
+    .bar-track{height:8px;background:rgba(255,255,255,0.08);border-radius:4px;overflow:hidden}
+    .bar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#f5c842,#e8a020);transition:width 0.4s ease}
+    .bar-fill.danger{background:linear-gradient(90deg,#ff6b6b,#ff4444)}
+    .tank-info{font-size:12px;color:#ccc;line-height:1.9;margin-top:12px}
+    .tank-info strong{color:var(--gold)}.tank-info .warn{color:var(--danger)}
+    .footnote{text-align:center;font-size:10px;color:#333;margin-top:16px}
+
+    /* ===== HISTORY PANEL ===== */
+    .hist-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+    .hist-title{font-family:'DM Serif Display',Georgia,serif;font-size:18px;color:var(--gold)}
+    .hist-count{font-size:11px;color:var(--muted);background:rgba(255,255,255,0.06);padding:3px 8px;border-radius:20px}
+    .hist-empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:13px;line-height:1.8}
+    .hist-empty .icon{font-size:32px;display:block;margin-bottom:10px;opacity:0.4}
+
+    /* place group */
+    .place-group{margin-bottom:14px}
+    .place-group-header{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+    .place-pin{font-size:14px}
+    .place-name{font-size:13px;font-weight:700;color:#7dd3fc;letter-spacing:0.02em;cursor:pointer;transition:color 0.2s}
+    .place-name:hover{color:#bae6fd}
+    .place-trip-count{font-size:10px;color:var(--muted);background:rgba(125,211,252,0.1);border-radius:10px;padding:2px 7px}
+
+    /* history card */
+    .hist-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:10px 12px;margin-bottom:6px;cursor:pointer;transition:border-color 0.2s,background 0.2s;position:relative}
+    .hist-card:hover{border-color:rgba(245,200,66,0.3);background:rgba(245,200,66,0.03)}
+    .hist-card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+    .hist-date{font-size:11px;color:#a5b4fc;font-weight:600}
+    .hist-total-cost{font-size:14px;font-weight:700;color:var(--gold)}
+    .hist-meta{font-size:11px;color:var(--muted);display:flex;gap:10px}
+    .hist-del{position:absolute;top:8px;right:36px;background:none;border:none;color:rgba(255,255,255,0.15);cursor:pointer;font-size:12px;padding:2px 4px;transition:color 0.2s}
+    .hist-del:hover{color:var(--danger)}
+    .hist-reuse{position:absolute;top:8px;right:8px;background:none;border:none;color:rgba(245,200,66,0.3);cursor:pointer;font-size:12px;padding:2px 4px;transition:color 0.2s}
+    .hist-reuse:hover{color:var(--gold)}
+
+    /* toast */
+    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:#1a2a1a;border:1px solid var(--green);color:var(--green);padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;opacity:0;transition:opacity 0.3s,transform 0.3s;pointer-events:none;z-index:999}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ===== LEFT: MAIN CALCULATOR ===== -->
+  <div class="main-col">
+    <div class="header">
+      <div class="header-icon">&#9981;</div>
+      <h1>Fuel Trip Calculator</h1>
+      <p class="subtitle">Plan your trips. Save on fuel.</p>
+    </div>
+
+    <!-- Vehicle Settings -->
+    <div class="card">
+      <div class="card-label">&#9881; Vehicle Settings</div>
+      <div class="settings-grid">
+        <div class="field"><label>Fuel Price (&#8377;/L)</label><input type="number" id="fuelPrice" value="108" min="0" oninput="calc()" /></div>
+        <div class="field"><label>Mileage (km/L)</label><input type="number" id="mileage" value="14" min="1" oninput="calc()" /></div>
+        <div class="field"><label>Tank Cap. (L)</label><input type="number" id="tankCap" value="60" min="1" oninput="calc()" /></div>
+      </div>
+      <div class="toggle-row" onclick="toggleRT()">
+        <div class="toggle-track" id="tt"><div class="toggle-thumb"></div></div>
+        <span class="toggle-label" id="tl">All trips are <strong>To &amp; Fro</strong> (doubles distance)</span>
+      </div>
+    </div>
+
+    <!-- Destination & Date -->
+    <div class="card">
+      <div class="card-label">&#128205; Trip Details</div>
+      <div class="dest-row">
+        <div class="field">
+          <label>Visiting Place</label>
+          <input type="text" id="visitPlace" class="place-input" placeholder="e.g. Tirupati" />
+        </div>
+        <div class="field">
+          <label>Trip Date</label>
+          <input type="date" id="tripDate" class="date-input" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Trips -->
+    <div class="card card-plain">
+      <div class="card-label">&#128506; Distance Legs</div>
+      <div id="tripList"></div>
+      <button class="add-trip-btn" onclick="addTrip()">+ Add Another Leg</button>
+    </div>
+
+    <!-- Results -->
+    <div class="card" id="resCard" style="display:none">
+      <div class="card-label">&#128202; Breakdown</div>
+      <div id="tripRes"></div>
+      <div class="totals" id="totals"></div>
+    </div>
+
+    <!-- Tank Planning -->
+    <div class="card card-plain" id="tankCard" style="display:none">
+      <div class="card-label">&#128706; Tank Planning</div>
+      <div class="bar-meta"><span>Fuel needed vs full tank</span><span id="barPct">0%</span></div>
+      <div class="bar-track"><div class="bar-fill" id="barFill" style="width:0%"></div></div>
+      <div class="tank-info" id="tankInfo"></div>
+    </div>
+
+    <!-- Save Button -->
+    <button class="save-btn" onclick="saveTrip()" id="saveBtn" style="display:none">&#128190; Save to History</button>
+    <button class="refresh-btn" onclick="resetAll()" id="refreshBtn" style="display:none">&#8635; New Trip</button>
+
+    <p class="footnote">Estimates based on avg mileage. Actual usage may vary with traffic &amp; AC use.</p>
+  </div>
+
+  <!-- ===== RIGHT: HISTORY PANEL ===== -->
+  <div class="history-col">
+    <div class="hist-header">
+      <div class="hist-title">&#128337; Trip History</div>
+      <div class="hist-count" id="histCount">0 trips</div>
+    </div>
+    <div id="historyPanel">
+      <div class="hist-empty">
+        <span class="icon">&#128205;</span>
+        Plan a trip and save it.<br>Your history will appear here,<br>grouped by destination.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var trips=[{label:'',distance:''}], rt=false;
+var history=[];
+
+// Load history from localStorage
+try{ history=JSON.parse(localStorage.getItem('fuelHistory')||'[]'); }catch(e){history=[];}
+
+// Set today as default date
+document.getElementById('tripDate').value=new Date().toISOString().split('T')[0];
+
+function toggleRT(){rt=!rt;document.getElementById('tt').classList.toggle('on',rt);document.getElementById('tl').classList.toggle('on',rt);calc()}
+function addTrip(){trips.push({label:'',distance:''});render();calc()}
+function removeTrip(i){if(trips.length===1)return;trips.splice(i,1);render();calc()}
+function upd(i,f,v){trips[i][f]=v;calc()}
+
+function render(){
+  var h='';
+  for(var i=0;i<trips.length;i++){
+    h+='<div class="trip-row">'+
+      '<div class="field"><label>Leg Label</label><input type="text" placeholder="Leg '+(i+1)+'" value="'+trips[i].label+'" oninput="upd('+i+','label',this.value)"/></div>'+
+      '<div class="field"><label>Distance (km)</label><input type="number" placeholder="e.g. 120" value="'+trips[i].distance+'" min="0" oninput="upd('+i+','distance',this.value)"/></div>'+
+      '<button class="remove-btn" onclick="removeTrip('+i+')">&#x2715;</button>'+
+      '</div>';
+  }
+  document.getElementById('tripList').innerHTML=h;
+}
+
+function fmt(n){return Math.ceil(n).toLocaleString('en-IN')}
+
+var lastResult={tDist:0,tFuel:0,tCost:0};
+
+function calc(){
+  var price=parseFloat(document.getElementById('fuelPrice').value)||0;
+  var mpg=parseFloat(document.getElementById('mileage').value)||1;
+  var tank=parseFloat(document.getElementById('tankCap').value)||60;
+  var res=[],tD=0,tF=0,tC=0;
+  for(var i=0;i<trips.length;i++){
+    var d=parseFloat(trips[i].distance)||0;
+    var dist=rt?d*2:d;
+    var fuel=dist/mpg;
+    var cost=fuel*price;
+    res.push({label:trips[i].label||'Leg '+(i+1),dist:dist,fuel:fuel,cost:cost});
+    tD+=dist;tF+=fuel;tC+=cost;
+  }
+  lastResult={tDist:tD,tFuel:tF,tCost:tC,price:price,tank:tank,mpg:mpg,res:res};
+  if(tD===0){
+    document.getElementById('resCard').style.display='none';
+    document.getElementById('tankCard').style.display='none';
+    document.getElementById('saveBtn').style.display='none';
+    document.getElementById('refreshBtn').style.display='none';
+    return;
+  }
+  document.getElementById('resCard').style.display='';
+  document.getElementById('tankCard').style.display='';
+  document.getElementById('saveBtn').style.display='';
+  document.getElementById('refreshBtn').style.display='';
+  var rh='';
+  for(var j=0;j<res.length;j++){
+    if(res[j].dist>0)
+      rh+='<div class="result-row"><div><span class="result-name">'+res[j].label+'</span><span class="result-km">'+res[j].dist+' km</span></div><div><span class="result-fuel">'+res[j].fuel.toFixed(2)+' L</span><span class="result-cost">&#8377;'+fmt(res[j].cost)+'</span></div></div>';
+  }
+  document.getElementById('tripRes').innerHTML=rh;
+  document.getElementById('totals').innerHTML=
+    '<div class="total-row"><span style="color:#bbb">Total Distance</span><span style="color:#ddd">'+tD.toFixed(0)+' km</span></div>'+
+    '<div class="total-row"><span style="color:#bbb">Total Fuel Required</span><span style="color:#ddd">'+tF.toFixed(2)+' L</span></div>'+
+    '<div class="total-row big"><span>Total Estimated Cost</span><span>&#8377;'+fmt(tC)+'</span></div>';
+  var pct=Math.min(100,tF/tank*100);
+  document.getElementById('barPct').textContent=pct.toFixed(0)+'%';
+  var fill=document.getElementById('barFill');
+  fill.style.width=pct+'%';
+  fill.className='bar-fill'+(tF>tank?' danger':'');
+  document.getElementById('tankInfo').innerHTML=tF<=tank?
+    '&#9989; A <strong>full tank costs &#8377;'+fmt(tank*price)+'</strong> and covers all trips.<br>You will use <strong>'+tF.toFixed(2)+' L</strong>, leaving ~<strong>'+(tank-tF).toFixed(1)+' L</strong> spare.':
+    '&#9888; Trips need <span class="warn">'+tF.toFixed(2)+' L</span> &mdash; more than one full tank ('+tank+'L).<br>Plan to refuel <strong>at least '+Math.ceil(tF/tank)+' times</strong>.';
+}
+
+function saveTrip(){
+  var place=(document.getElementById('visitPlace').value||'').trim();
+  var date=document.getElementById('tripDate').value;
+  if(!place){showToast('Please enter a visiting place!');return;}
+  if(!date){showToast('Please select a trip date!');return;}
+  if(lastResult.tDist===0){showToast('Add at least one distance leg!');return;}
+  var entry={
+    id:Date.now(),
+    place:place,
+    date:date,
+    rt:rt,
+    trips:trips.map(function(t){return{label:t.label,distance:t.distance}}),
+    price:parseFloat(document.getElementById('fuelPrice').value)||108,
+    mpg:parseFloat(document.getElementById('mileage').value)||14,
+    tank:parseFloat(document.getElementById('tankCap').value)||60,
+    tDist:lastResult.tDist,
+    tFuel:lastResult.tFuel,
+    tCost:lastResult.tCost
+  };
+  history.unshift(entry);
+  try{localStorage.setItem('fuelHistory',JSON.stringify(history));}catch(e){}
+  renderHistory();
+  showToast('&#10003; Saved to history!');
+}
+
+function loadTrip(entry){
+  document.getElementById('visitPlace').value=entry.place;
+  document.getElementById('tripDate').value=entry.date;
+  document.getElementById('fuelPrice').value=entry.price;
+  document.getElementById('mileage').value=entry.mpg;
+  document.getElementById('tankCap').value=entry.tank;
+  rt=entry.rt;
+  document.getElementById('tt').classList.toggle('on',rt);
+  document.getElementById('tl').classList.toggle('on',rt);
+  trips=entry.trips.map(function(t){return{label:t.label,distance:t.distance}});
+  render();
+  calc();
+  window.scrollTo({top:0,behavior:'smooth'});
+  showToast('&#128257; Trip loaded!');
+}
+
+function deleteEntry(id,e){
+  e.stopPropagation();
+  history=history.filter(function(h){return h.id!==id});
+  try{localStorage.setItem('fuelHistory',JSON.stringify(history));}catch(e){}
+  renderHistory();
+}
+
+function fmtDate(d){
+  if(!d)return'';
+  var p=d.split('-');
+  var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return p[2]+' '+months[parseInt(p[1])-1]+' '+p[0];
+}
+
+function renderHistory(){
+  var panel=document.getElementById('historyPanel');
+  var total=history.length;
+  document.getElementById('histCount').textContent=total+(total===1?' trip':' trips');
+  if(total===0){
+    panel.innerHTML='<div class="hist-empty"><span class="icon">&#128205;</span>Plan a trip and save it.<br>Your history will appear here,<br>grouped by destination.</div>';
+    return;
+  }
+  // Group by place
+  var groups={};
+  var order=[];
+  for(var i=0;i<history.length;i++){
+    var key=history[i].place.toLowerCase();
+    if(!groups[key]){groups[key]={name:history[i].place,entries:[]};order.push(key);}
+    groups[key].entries.push(history[i]);
+  }
+  var html='';
+  for(var p=0;p<order.length;p++){
+    var g=groups[order[p]];
+    html+='<div class="place-group">';
+    html+='<div class="place-group-header"><span class="place-pin">&#128205;</span><span class="place-name" onclick="loadTrip(groups[''+order[p]+''].entries[0])">'+g.name+'</span><span class="place-trip-count">'+g.entries.length+' trip'+(g.entries.length>1?'s':'')+'</span></div>';
+    for(var e=0;e<g.entries.length;e++){
+      var en=g.entries[e];
+      html+='<div class="hist-card" onclick="loadTrip('+JSON.stringify(en).replace(/"/g,'&quot;')+')">';
+      html+='<button class="hist-del" onclick="deleteEntry('+en.id+',event)" title="Delete">&#x2715;</button>';
+      html+='<button class="hist-reuse" title="Load this trip">&#8617;</button>';
+      html+='<div class="hist-card-top"><span class="hist-date">&#128197; '+fmtDate(en.date)+(en.rt?' &bull; To &amp; Fro':'')+'</span><span class="hist-total-cost">&#8377;'+fmt(en.tCost)+'</span></div>';
+      html+='<div class="hist-meta"><span>&#128663; '+en.tDist.toFixed(0)+' km</span><span>&#9981; '+en.tFuel.toFixed(1)+' L</span><span>&#8377;'+en.price+'/L &bull; '+en.mpg+' kmpl</span></div>';
+      html+='</div>';
+    }
+    html+='</div>';
+  }
+  panel.innerHTML=html;
+  // Re-expose groups for onclick
+  window.groups=groups;
+}
+
+function showToast(msg){
+  var t=document.getElementById('toast');
+  t.innerHTML=msg;t.classList.add('show');
+  setTimeout(function(){t.classList.remove('show')},2500);
+}
+
+function resetAll(){
+  trips=[{label:'',distance:''}];
+  rt=false;
+  document.getElementById('visitPlace').value='';
+  document.getElementById('tripDate').value=new Date().toISOString().split('T')[0];
+  document.getElementById('fuelPrice').value=108;
+  document.getElementById('mileage').value=14;
+  document.getElementById('tankCap').value=60;
+  document.getElementById('tt').classList.remove('on');
+  document.getElementById('tl').classList.remove('on');
+  document.getElementById('resCard').style.display='none';
+  document.getElementById('tankCard').style.display='none';
+  document.getElementById('saveBtn').style.display='none';
+    document.getElementById('refreshBtn').style.display='none';
+  document.getElementById('refreshBtn').style.display='none';
+  render();
+  showToast('&#10003; Ready for a new trip!');
+}
+render();calc();renderHistory();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(function(){});
+</script>
+</body>
+</html>
