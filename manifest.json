@@ -23,3 +23,8 @@
   ],
   "categories": ["utilities", "travel"]
 }
+{
+  "id": "/",
+  "name": "Fuel Calc",
+  ...
+}
